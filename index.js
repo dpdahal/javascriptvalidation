@@ -23,20 +23,21 @@ app.get('/', (req, res) => {
 app.get('/insert',async (req, res) => {
     const formData = {
         username: 'aa',
-        email: 'rama@gmail.com'
+        email: 'test@gmail.com',
     };
 
     const validationRules = {
         username: 'required|min:2|max:20',
         email: 'required|email|unique:users,email'
+
     };
 
     const validator = new Validation();
-    validator.validation(validationRules,formData);
+    await validator.validation(validationRules,formData);
     console.log(validator.isValid() ? 'Data is valid' : 'Data is not valid');
+
     if(validator.isValid()){
-        const user = new User(formData);
-        await user.save();
+       console.log('Data is valid');
     }else{
         console.log(validator.getErrors());
 
