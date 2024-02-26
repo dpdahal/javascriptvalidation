@@ -1,9 +1,37 @@
-class Validation {
+import mongoose from 'mongoose';
+import connection from "./database/connection.js";
+
+class Database {
+    async checkExistsOrNot(collection_name, column_name, value) {
+        try {
+            await connection();
+            const tables = await mongoose.connection.db.listCollections({name: collection_name}).toArray();
+            let collectionNames = tables.map(table => table.name);
+            if(collectionNames.length === 0){
+                throw new Error('Collection not found');
+            }
+            let collection = collectionNames[0];
+            let criteria = {};
+            criteria[column_name] = value;
+            let user = await mongoose.connection.db.collection(collection).findOne(criteria);
+            return !!user;
+
+
+
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+}
+
+
+class Validation extends Database{
     constructor() {
+        super();
         this._errors = {};
     }
 
-    validation(validationRules) {
+    validation(validationRules, formData) {
         for (let field in validationRules) {
             let rules = validationRules[field].split('|');
             rules.forEach(rule => {
@@ -35,27 +63,16 @@ class Validation {
                         if (!allowedTypes.includes(ext)) {
                             this.setErrors(field, `${field} only supported`);
                         }
-                    }else if (/unique:/.test(rule)) {
+                    } else if (/unique:/.test(rule)) {
                         let matchField = rule.replace('unique:', '');
                         let matchFields = matchField.split(',');
                         if (matchFields.length < 2) throw new Error("Unique field required table name & column");
                         let tableName = matchFields[0];
                         let columns = matchFields[1];
-                        let criteriaColumnValue;
-                        console.log(matchFields);
-                        // if (matchFields.length === 3) {
-                        //     criteriaColumnValue = matchFields[2].split(':');
-                        //     let query = `SELECT ${columns} FROM ${tableName} WHERE ${columns}='${formData[field]}' AND ${criteriaColumnValue[0]}!='${criteriaColumnValue[1]}'`;
-                        //     let result = this._db.customQuery(query);
-                        //     if (result) {
-                        //         this.setErrors(field, `${field} must be unique`);
-                        //     }
-                        // } else {
-                        //     let result = this._db.selectByCriteria(tableName, '', columns, [formData[field]]);
-                        //     if (result) {
-                        //         this.setErrors(field, `${field} must be unique`);
-                        //     }
-                        // }
+
+                        if (this.checkExistsOrNot(tableName, columns, formData[field])) {
+                            this.setErrors(field, `${field} already exists`);
+                        }
                     }
                 }
 
@@ -84,14 +101,6 @@ class Validation {
     }
 }
 
-// Example usage:
-const formData = {
-    username: 'a',
-    email: 'ram@gmail.com',
-    password: 'password123',
-    confirm_password: 'password12'
-};
-
 const fileData = {
     avatar: {
         name: 'example.jpg',
@@ -99,17 +108,7 @@ const fileData = {
     }
 };
 
-const validationRules = {
-    username: 'required|min:5|max:20',
-    email: 'required|email|unique:users,email',
-    password: 'required|min:8',
-    confirm_password: 'required|matches:password',
-    avatar: 'mimes:jpg,png,gif'
-};
+export default Validation;
 
-const validator = new Validation();
-validator.validation(validationRules);
-console.log(validator.isValid() ? 'Data is valid' : 'Data is not valid');
-console.log(validator.getErrors());
 
 
